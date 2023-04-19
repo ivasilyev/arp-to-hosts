@@ -58,9 +58,28 @@ def check_suffix(s: str):
     return s
 
 
+def remove_empty_values(x: list):
+    return [i for i in x if len(i) > 0]
+
+
+def is_ip_valid(x: str):
+    return (
+        all(not x.startswith(i) for i in ["127.", "::1", "fe00:", "ff00:", "ff02:"])
+        or len(re.findall("[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", x)) > 0
+    )
+
+
+def validate_hostname(s):
+    s = s.lower().strip()
+    # .local conflicts with Multicast DNS
+    if s.endswith(".lpcal"):
+        return ""
+    return re.sub("[_-]+", "-", s)
+
+
 def is_nic_valid(s: str):
     o = go("ls /sys/class/net")
-    nics = [i for i in split_lines(o) if len(i) > 0]
+    nics = remove_empty_values(split_lines(o))
     if len(s) > 0:
         if s in nics:
             return True
@@ -257,10 +276,9 @@ if __name__ == '__main__':
     for old_index in range(len(hosts_table)):
         new_index = old_index - pop_count
         hosts_entry = hosts_table[new_index]
-        if any(hosts_entry[0].startswith(i) for i in ["127.", "::1", "fe00:", "ff00:", "ff02:"]):
+        if not is_ip_valid(hosts_entry[0]):
             continue
-        # .local conflicts with Multicast DNS
-        entry_hostnames = sorted([i for i in hosts_entry[1:] if not i.endswith(".local")], key=len)
+        entry_hostnames = sorted(remove_empty_values([validate_hostname(i) for i in hosts_entry[1:]]), key=len)
         hosts_table[new_index] = [hosts_entry[0]] + entry_hostnames
         for hostname_dict in hostname_dicts:
             if hostname_dict["ip"] == hosts_entry or any(i in entry_hostnames for i in hostname_dict["hostnames"]):
