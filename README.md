@@ -47,7 +47,7 @@ cat /etc/hosts
 ## Run in debug mode
 
 ```shell script
-LOGGING_LEVEL="DEBUG" python3 "arp-to-hosts.py"
+LOGGING_LEVEL="DEBUG" python3 "/opt/arp-to-hosts/arp-to-hosts.py"
 ```
 
 ## Add cron rule

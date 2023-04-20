@@ -65,7 +65,7 @@ def remove_empty_values(x: list):
 def is_ip_valid(x: str):
     return (
         all(not x.startswith(i) for i in ["127.", "::1", "fe00:", "ff00:", "ff02:"])
-        or len(re.findall("[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", x)) > 0
+        and len(re.findall("[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", x)) > 0
     )
 
 
@@ -99,8 +99,8 @@ def get_default_nic():
 
 
 def arp_scan(nic: str):
-    o = go(f"arp-scan --interface={nic} --localnet --plain --quiet")
-    addresses = sorted_set([i[0] for i in split_table(o)])
+    o = go(f"/usr/sbin/arp-scan --interface=\"{nic}\" --localnet --plain --quiet")
+    addresses = sorted_set([j for j in [i[0] for i in split_table(o)] if is_ip_valid(j)])
     return addresses
 
 
@@ -124,7 +124,7 @@ def nslookup(ip: str):
 
 
 def arp_a(ip: str):
-    o = go(f"arp -a \"{ip}\"")
+    o = go(f"/usr/sbin/arp -a \"{ip}\"")
     for name_string in split_lines(o):
         name = re.findall("(^[^ ]+)", name_string)
         if len(name) > 0:
