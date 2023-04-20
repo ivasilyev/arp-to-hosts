@@ -69,10 +69,14 @@ def is_ip_valid(x: str):
     )
 
 
-def validate_hostname(s):
+def validate_hostname(s: str):
     s = s.lower().strip()
     # .local conflicts with Multicast DNS
-    if s.endswith(".lpcal"):
+    if (
+        len(s) == 0
+        or s.endswith(".lpcal")
+        or s in ("?", "_gateway")
+    ):
         return ""
     return re.sub("[_-]+", "-", s)
 
@@ -143,13 +147,15 @@ def dig_x(ip: str):
 
 
 def pick_hostname(ip: str):
+    if not is_ip_valid(ip):
+        return dict()
     for func in (nmblookup, nslookup, arp_a, dig_x):
         name = func.__name__
         logging.info(f"Trying '{name}'")
-        out = func(ip)
-        if len(out) > 0 and out not in ("?", "_gateway"):
-            logging.debug(f"Got hostname for IP address '{ip}' via '{name}'")
-            return dict(ip=ip, hostname=out.lower())
+        hostname = validate_hostname(func(ip))
+        if len(hostname) > 0:
+            logging.debug(f"Got hostname for IP address '{ip}' via '{name}': '{hostname}'")
+            return dict(ip=ip, hostname=hostname)
     return dict()
 
 
@@ -261,12 +267,12 @@ if __name__ == '__main__':
 
     logging.info(f"Add suffix '{main_suffix}' to {len(hostname_dicts)} discovered hostnames")
     for index in range(len(hostname_dicts)):
-        hostname_dict = hostname_dicts[index]
-        hostname_dict["hostnames"] = [hostname_dict["hostname"], "{}.{}".format(hostname_dict["hostname"], main_suffix)]
+        found_ip = hostname_dicts[index]["ip"]
+        found_hostname = hostname_dicts[index]["hostname"]
+        found_hostnames = [found_hostname, "{}.{}".format(found_hostname, main_suffix)]
         if index == len(hostname_dicts) - 1:
-            hostname_dict["hostnames"] = [hostname_dict["hostnames"][-1]]
-        hostname_dict.pop("hostname")
-        hostname_dicts[index] = hostname_dict
+            found_hostnames = [found_hostnames[-1]]
+        hostname_dicts[index] = dict(ip=found_ip, hostnames=found_hostnames)
 
     table_append = [[i["ip"]] + i["hostnames"] for i in hostname_dicts]
 
@@ -276,12 +282,16 @@ if __name__ == '__main__':
     for old_index in range(len(hosts_table)):
         new_index = old_index - pop_count
         hosts_entry = hosts_table[new_index]
-        if not is_ip_valid(hosts_entry[0]):
+        entry_ip = hosts_entry[0]
+        if not is_ip_valid(entry_ip):
             continue
         entry_hostnames = sorted(remove_empty_values([validate_hostname(i) for i in hosts_entry[1:]]), key=len)
-        hosts_table[new_index] = [hosts_entry[0]] + entry_hostnames
+        hosts_table[new_index] = [entry_ip] + entry_hostnames
         for hostname_dict in hostname_dicts:
-            if hostname_dict["ip"] == hosts_entry or any(i in entry_hostnames for i in hostname_dict["hostnames"]):
+            if (
+                hostname_dict["ip"] == entry_ip
+                or any(i in entry_hostnames for i in hostname_dict["hostnames"])
+            ):
                 logging.debug(f"Remove entry: '{hosts_entry}'")
                 hosts_table.pop(new_index)
                 pop_count += 1
