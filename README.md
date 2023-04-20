@@ -57,7 +57,7 @@ sudo crontab -e
 ```
 ```text
 # Update hosts every midnight
-0 0 * * * "/usr/bin/python3" "/opt/arp-to-hosts/arp-to-hosts.py" &> /dev/null &
+0 0 * * * "/usr/bin/python3" "/opt/arp-to-hosts/arp-to-hosts.py" > /dev/null 2>&1 &
 ```
 ```shell script
 sudo crontab -l
