@@ -106,7 +106,7 @@ def arp_scan(nic: str):
 
 def nmblookup(ip: str):
     o = go(f"nmblookup -A {ip}")
-    active_name_strings = [i for i in split_lines(o) if "<ACTIVE>" in i]
+    active_name_strings = [i for i in split_lines(o) if "<ACTIVE>" in i and "<GROUP>" not in i]
     for active_name_string in active_name_strings:
         name = re.findall("^([^ ]+)", active_name_string)[0]
         if len(name) > 0 and name not in ("MAC", "__MSBROWSE__"):
