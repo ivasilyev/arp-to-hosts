@@ -47,17 +47,35 @@ cat /etc/hosts
 ## Run in debug mode
 
 ```shell script
-LOGGING_LEVEL="DEBUG" python3 "/opt/arp-to-hosts/arp-to-hosts.py"
+LOGGING_LEVEL="DEBUG" \
+sudo python3 "/opt/arp-to-hosts/arp-to-hosts.py" \
+| tee "/tmp/arp-to-hosts.log" 2>&1
 ```
 
-## Add cron rule
+## View network interfaces
 
 ```shell script
-sudo crontab -e
+ip addr show
 ```
-```text
-# Update hosts every midnight
-0 0 * * * "/usr/bin/python3" "/opt/arp-to-hosts/arp-to-hosts.py" > /dev/null 2>&1 &
+
+## Create and add `cron` rules
+
+```shell script
+NICS="$(
+    ip route show default 0.0.0.0/0 \
+    | awk '{ print $5 }'
+)"
+
+while IFS= read -r LINE
+    do 
+    echo "
+    0 0 * * * \"/usr/bin/python3\" \"/opt/arp-to-hosts/arp-to-hosts.py\" -n \"${LINE}\" -s \"${LINE}\" > /dev/null 2>&1 &\
+    " \
+    | sed 's/^[ \t]*//;s/[ \t]*$//';
+    done \
+<<< "${NICS}"
+
+sudo crontab -e
 ```
 ```shell script
 sudo crontab -l
