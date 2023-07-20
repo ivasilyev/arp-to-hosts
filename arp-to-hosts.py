@@ -28,16 +28,17 @@ def split_lines(s: str):
     return [i.strip() for i in re.split("[\r\n]+", s)]
 
 
-def split_table(s: str, is_space_delimiter: bool = False):
+def split_columns(s: str, is_space_delimiter: bool = False):
     r = "[\t]+"
     if is_space_delimiter:
         r = "[\t ]+"
+    return [i.strip() for i in re.split(r, s)]
+
+
+def split_table(s: str, is_space_delimiter: bool = False):
     o = list()
     for line in split_lines(s):
-        if line.startswith("#"):
-            row = [line]
-        else:
-            row = [re.sub("^[^#]+(#.*)", "", j.strip()) for j in re.split(r, line)]
+        row = [re.sub("^[^#]+(#.*)", "", i) for i in split_columns(line, is_space_delimiter)]
         o.append(row)
     return o
 
@@ -62,10 +63,25 @@ def remove_empty_values(x: list):
     return [i for i in x if len(i) > 0]
 
 
-def is_ip_valid(x: str):
+def is_ip_loopback(s: str):
+    return any(s.startswith(i) for i in ["127.", "::1", "fe00:", "ff00:", "ff02:"])
+
+
+def is_ip_valid(s: str):
     return (
-        all(not x.startswith(i) for i in ["127.", "::1", "fe00:", "ff00:", "ff02:"])
-        and len(re.findall("[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+", x)) > 0
+        len(s) > 0
+        and not(is_ip_loopback(s))
+        and len(re.findall("[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}", s)) > 0
+    )
+
+
+def is_hosts_line_valid(s: str):
+    return (
+        len(s) == 0
+        or is_ip_loopback(s)
+        or is_ip_valid(s)
+        or s.startswith("#")
+        or s.startswith(";")
     )
 
 
@@ -105,6 +121,7 @@ def get_default_nic():
 def arp_scan(nic: str):
     o = go(f"/usr/sbin/arp-scan --interface=\"{nic}\" --localnet --plain --quiet")
     addresses = sorted_set([j for j in [i[0] for i in split_table(o)] if is_ip_valid(j)])
+    logging.info(f"'arp-scan' returned {len(addresses)} adresses")
     return addresses
 
 
@@ -167,21 +184,10 @@ def mp_queue(func, queue: list):
     return out
 
 
-def ip_route(dev: str):
-    o = go(f"ip route get 1")
-    split_lines(o)
-    for line in split_lines(o):
-        if f"dev {dev} " in line:
-            name = re.findall("src ([^ ]+)", line)
-            if len(name) > 0:
-                return name[0].strip(" .")
-    return ""
-
-
-def get_self_hostname(*args, **kwargs):
+def get_self_hostname(dev: str):
     o = go(f"hostname --short")
     _hostname = o.split(" ")[0].strip()
-    _ip = ip_route(*args, **kwargs)
+    _ip = go(f"ip addr show dev {dev} | grep -oP '(?<=inet )[0-9.]+(?=/)'")
     return dict(hostname=_hostname, ip=_ip)
 
 
@@ -226,6 +232,37 @@ def get_logging_level():
     return logging.ERROR
 
 
+def validate_new_hostnames(dicts: list):
+    out = list()
+    for d in dicts:
+        if "hostname" in d.keys() and is_ip_valid(d.get("ip")):
+            out.append(d)
+    return sorted(out, key=lambda x: x.get("ip"))
+
+
+def process_hosts_table(table: list, hostnames: dict, suffix: str):
+    hostnames_with_suffixes = {k: "{}.{}".format(v, suffix) for k, v in hostnames.items()}
+    new_hostnames = list(hostnames.values()) + list(hostnames_with_suffixes.values())
+    out_lines = list()
+    for line in table:
+        columns = remove_empty_values(split_columns(line, is_space_delimiter=True))
+        if len(columns) == 0:
+            out_lines.append([line])
+            continue
+        ip = columns[0]
+        if not is_ip_valid(ip):
+            out_lines.append([line])
+            continue
+        hostnames = [i for i in columns[1:] if i not in new_hostnames]
+        if ip in hostnames_with_suffixes.keys():
+            hostnames = [hostnames_with_suffixes.pop(ip)]
+        out_lines.append([ip, *hostnames])
+    logging.debug(f"New host names to add: '{hostnames_with_suffixes}'")
+    extend_hostnames = list(hostnames_with_suffixes.items())
+    out_lines.extend(extend_hostnames)
+    return out_lines
+
+
 def parse_args():
     p = ArgumentParser(description="This tool scans the network for the hosts telling their hostnames "
                                    "and updates the system hosts file",
@@ -256,55 +293,31 @@ if __name__ == '__main__':
     else:
         main_nic = get_default_nic()
 
+    main_suffix = check_suffix(input_suffix)
+
     parsed_ip_addresses = arp_scan(main_nic)
 
     raw_hostname_dicts = mp_queue(pick_hostname, parsed_ip_addresses)
-    hostname_dicts = sorted([i for i in raw_hostname_dicts if "hostname" in i.keys()], key=lambda x: x.get("hostname"))
-    hostname_dicts.append(get_self_hostname(main_nic))
-    logging.debug(f"Parsed hostnames are '{hostname_dicts}'")
 
-    main_suffix = check_suffix(input_suffix)
 
-    logging.info(f"Add suffix '{main_suffix}' to {len(hostname_dicts)} discovered hostnames")
-    for index in range(len(hostname_dicts)):
-        found_ip = hostname_dicts[index]["ip"]
-        found_hostname = hostname_dicts[index]["hostname"]
-        found_hostnames = [found_hostname, "{}.{}".format(found_hostname, main_suffix)]
-        if index == len(hostname_dicts) - 1:
-            found_hostnames = [found_hostnames[-1]]
-        hostname_dicts[index] = dict(ip=found_ip, hostnames=found_hostnames)
+    hostname_dicts = raw_hostname_dicts + [get_self_hostname(main_nic)]
+    hostname_dicts = validate_new_hostnames(hostname_dicts)
+    hostname_dict = {i["ip"]: i["hostname"] for i in hostname_dicts}
+    logging.debug(f"Parsed hostnames are '{hostname_dict}'")
 
-    table_append = [[i["ip"]] + i["hostnames"] for i in hostname_dicts]
 
-    hosts_table = load_hosts(HOSTS_FILE)
-    old_hosts_table_size = len(hosts_table)
-    pop_count = 0
-    for old_index in range(len(hosts_table)):
-        new_index = old_index - pop_count
-        hosts_entry = hosts_table[new_index]
-        entry_ip = hosts_entry[0]
-        if not is_ip_valid(entry_ip):
-            continue
-        entry_hostnames = sorted(remove_empty_values([validate_hostname(i) for i in hosts_entry[1:]]), key=len)
-        hosts_table[new_index] = [entry_ip] + entry_hostnames
-        for hostname_dict in hostname_dicts:
-            if (
-                hostname_dict["ip"] == entry_ip
-                or any(i in entry_hostnames for i in hostname_dict["hostnames"])
-            ):
-                logging.debug(f"Remove entry: '{hosts_entry}'")
-                hosts_table.pop(new_index)
-                pop_count += 1
-                break
-
-    updating_entries_number = old_hosts_table_size - len(hosts_table)
-    logging.info(f"{updating_entries_number} host entries to update, {len(table_append) - updating_entries_number} to add")
+    old_hosts_lines = [i for i in split_lines(load_string(HOSTS_FILE)) if is_hosts_line_valid(i)]
+    new_hosts_lines = process_hosts_table(
+        table=old_hosts_lines,
+        suffix=main_suffix,
+        hostnames=hostname_dict,
+    )
 
     backup_file = f"{HOSTS_FILE}.bak"
     if not os.path.exists(backup_file):
         copy2(HOSTS_FILE, backup_file)
         logging.info(f"Created backup: '{backup_file}'")
 
-    new_hosts_content = join_table(hosts_table + table_append)
+    new_hosts_content = join_table(new_hosts_lines)
     dump_string(new_hosts_content, HOSTS_FILE)
     logging.info("Hosts update completed")
