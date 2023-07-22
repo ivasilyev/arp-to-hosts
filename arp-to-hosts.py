@@ -89,7 +89,7 @@ def is_hostname_valid(s: str):
     return (
         s is not None
         and len(s) > 0
-        and len(re.findall("[^A-Za-z0-9\.\-_]+", s[1])) == 0
+        and len(re.findall("[^A-Za-z0-9\.\-_]+", s)) == 0
         # .local conflicts with Multicast DNS
         and not s.endswith(".local")
         and s not in ("?", "_gateway")
