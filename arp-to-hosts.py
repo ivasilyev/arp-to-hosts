@@ -241,7 +241,7 @@ def flush_dns():
 
 
 def get_logging_level():
-    var = os.getenv("LOGGING_LEVEL", logging.ERROR)
+    var = os.getenv("LOGGING_LEVEL", None)
     if (
         var is not None
         and len(var) > 0
