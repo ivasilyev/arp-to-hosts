@@ -70,7 +70,7 @@ def is_ip_loopback(s: str):
 def is_ip_valid(s: str):
     return (
         len(s) > 0
-        and not(is_ip_loopback(s))
+        and not is_ip_loopback(s)
         and len(re.findall("[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}", s)) > 0
     )
 
@@ -125,9 +125,9 @@ def get_default_nic():
 
 
 def arp_scan(nic: str):
-    o = go(f"/usr/sbin/arp-scan --interface=\"{nic}\" --localnet --plain --quiet")
+    o = go(f"/usr/sbin/arp-scan --interface={nic} --localnet --plain --quiet")
     addresses = sorted_set([j for j in [i[0] for i in split_table(o)] if is_ip_valid(j)])
-    logging.info(f"'arp-scan' returned {len(addresses)} adresses")
+    logging.debug(f"'arp-scan' returned {len(addresses)} adresses")
     return addresses
 
 
@@ -137,6 +137,7 @@ def nmblookup(ip: str):
     for active_name_string in active_name_strings:
         name = re.findall("^([^ ]+)", active_name_string)[0]
         if len(name) > 0 and name not in ("MAC", "__MSBROWSE__"):
+            logging.debug(f"'nmblookup' returned '{name}'")
             return name
     return ""
 
@@ -146,7 +147,9 @@ def nslookup(ip: str):
     for name_string in flatten_2d_list(split_table(o)):
         name = re.findall("name = ([^ ]+)", name_string)
         if len(name) > 0:
-            return name[0].strip(" .")
+            out = name[0].strip(" .")
+            logging.debug(f"'nslookup' returned '{out}'")
+            return out
     return ""
 
 
@@ -155,7 +158,9 @@ def arp_a(ip: str):
     for name_string in split_lines(o):
         name = re.findall("(^[^ ]+)", name_string)
         if len(name) > 0:
-            return name[0].strip(" .")
+            out = name[0].strip(" .")
+            logging.debug(f"'arp -a' returned '{out}'")
+            return out
     return ""
 
 
@@ -165,7 +170,9 @@ def dig_x(ip: str):
         if len(row_list) < 4:
             continue
         if row_list[1] == "IN" and row_list[2] == "PTR":
-            return row_list[3].strip(" .")
+            out = row_list[3].strip(" .")
+            logging.debug(f"'dig -x' returned '{out}'")
+            return out
     return ""
 
 
@@ -284,7 +291,7 @@ def parse_args():
                               "e.g. RFC 2606, RFC 6761, RFC 6762 incl. Appendix G")
     p.add_argument("-f", "--flush", help="(Optional) Flush DNS records", action="store_true")
     p.add_argument("-n", "--nic", help="(Optional) Network interface", default="")
-    p.add_argument("-s", "--suffix", help="(Optional) Default suffix", default="")
+    p.add_argument("-s", "--suffix", help="(Optional) Default suffix", default=DEFAULT_SUFFIX)
     ns = p.parse_args()
     return (
         ns.flush,
@@ -300,10 +307,13 @@ if __name__ == '__main__':
         input_suffix,
     ) = parse_args()
 
-    logging.basicConfig(
-        format=u"%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s",
-        level=get_logging_level()
+    logger = logging.getLogger()
+    logger.setLevel(get_logging_level())
+    stream = logging.StreamHandler()
+    stream.setFormatter(logging.Formatter(
+        u"%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s")
     )
+    logger.addHandler(stream)
 
     if input_is_flush:
         flush_dns()
