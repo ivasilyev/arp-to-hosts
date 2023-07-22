@@ -248,7 +248,7 @@ def validate_new_hostnames(dicts: list):
         if (
             "hostname" in d.keys()
             and is_ip_valid(d.get("ip"))
-            and is_hostname_valid(d.get("ip"))
+            and is_hostname_valid(d.get("hostname"))
         ):
             out.append(d)
     return sorted(out, key=lambda x: x.get("ip"))
