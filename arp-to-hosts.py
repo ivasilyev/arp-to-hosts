@@ -241,8 +241,12 @@ def flush_dns():
 
 
 def get_logging_level():
-    var = os.getenv("LOGGING_LEVEL")
-    if var is not None and len(var) > 0 and hasattr(logging, var):
+    var = os.getenv("LOGGING_LEVEL", logging.ERROR)
+    if (
+        var is not None
+        and len(var) > 0
+        and hasattr(logging, var)
+    ):
         val = getattr(logging, var)
         if isinstance(val, int) and val in [i * 10 for i in range(0, 6)]:
             return val
@@ -262,7 +266,12 @@ def validate_new_hostnames(dicts: list):
 
 
 def process_hosts_table(table: list, hostnames: dict, suffix: str):
-    hostnames_with_suffixes = {k: "{}.{}".format(v, suffix) for k, v in hostnames.items()}
+    suffix = f".{suffix}"
+    hostnames_with_suffixes = dict()
+    for ip, hostname in hostnames.items():
+        if not hostname.endswith(suffix):
+            hostname = f"{hostname}{suffix}"
+        hostnames_with_suffixes[ip] = hostname
     new_hostnames = list(hostnames.values()) + list(hostnames_with_suffixes.values())
     out_lines = list()
     for line in table:

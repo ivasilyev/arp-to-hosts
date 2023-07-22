@@ -50,7 +50,7 @@ cat /etc/hosts
 ## Run in debug mode
 
 ```shell script
-LOGGING_LEVEL="DEBUG" \
+export LOGGING_LEVEL="DEBUG"
 sudo python3 "/opt/arp-to-hosts/arp-to-hosts.py" \
 | tee "/tmp/arp-to-hosts.log" 2>&1
 ```
