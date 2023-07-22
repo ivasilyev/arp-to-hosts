@@ -85,16 +85,22 @@ def is_hosts_line_valid(s: str):
     )
 
 
+def is_hostname_valid(s: str):
+    return (
+        s is not None
+        and len(s) > 0
+        and len(re.findall("[^A-Za-z0-9\.\-_]+", s[1])) == 0
+        # .local conflicts with Multicast DNS
+        and not s.endswith(".local")
+        and s not in ("?", "_gateway")
+    )
+
+
 def validate_hostname(s: str):
     s = s.lower().strip()
-    # .local conflicts with Multicast DNS
-    if (
-        len(s) == 0
-        or s.endswith(".lpcal")
-        or s in ("?", "_gateway")
-    ):
-        return ""
-    return re.sub("[_-]+", "-", s)
+    if is_hostname_valid:
+        return re.sub("[_-]+", "-", s)
+    return ""
 
 
 def is_nic_valid(s: str):
@@ -235,7 +241,11 @@ def get_logging_level():
 def validate_new_hostnames(dicts: list):
     out = list()
     for d in dicts:
-        if "hostname" in d.keys() and is_ip_valid(d.get("ip")):
+        if (
+            "hostname" in d.keys()
+            and is_ip_valid(d.get("ip"))
+            and is_hostname_valid(d.get("ip"))
+        ):
             out.append(d)
     return sorted(out, key=lambda x: x.get("ip"))
 
@@ -304,7 +314,6 @@ if __name__ == '__main__':
     hostname_dicts = validate_new_hostnames(hostname_dicts)
     hostname_dict = {i["ip"]: i["hostname"] for i in hostname_dicts}
     logging.debug(f"Parsed hostnames are '{hostname_dict}'")
-
 
     old_hosts_lines = [i for i in split_lines(load_string(HOSTS_FILE)) if is_hosts_line_valid(i)]
     new_hosts_lines = process_hosts_table(
