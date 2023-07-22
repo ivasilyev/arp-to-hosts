@@ -35,6 +35,9 @@ sudo mkdir -p -m 755 "/opt/arp-to-hosts"
 cd "/opt/arp-to-hosts" && \
 sudo curl -fsSLO \
     "https://raw.githubusercontent.com/ivasilyev/arp-to-hosts/master/arp-to-hosts.py"
+
+sudo chmod -R 755 "/opt/arp-to-hosts"
+
 cd
 ```
 
@@ -69,7 +72,7 @@ NICS="$(
 while IFS= read -r LINE
     do 
     echo "
-    0 0 * * * \"/usr/bin/python3\" \"/opt/arp-to-hosts/arp-to-hosts.py\" -n \"${LINE}\" -s \"${LINE}\" > /dev/null 2>&1 &\
+    0 15 * * * \"/usr/bin/python3\" \"/opt/arp-to-hosts/arp-to-hosts.py\" --nic \"${LINE}\" --suffix \"${LINE}\" > /dev/null 2>&1
     " \
     | sed 's/^[ \t]*//;s/[ \t]*$//';
     done \

@@ -222,7 +222,11 @@ def join_table(list_of_lists: list):
     return "\n".join(["\t".join([str(column) for column in row]) for row in list_of_lists]) + "\n"
 
 
-def restart_dns():
+def flush_dns():
+    logging.info("Flush DNS caches")
+    o = go("resolvectl flush-caches").strip()
+    if len(o) > 0:
+        logging.warning(f"DNS cache flush attempt finished unexpectedly: '{o}'")
     logging.info("Restart DNS")
     o = go("systemctl restart systemd-hostnamed").strip()
     if len(o) > 0:
@@ -278,25 +282,31 @@ def parse_args():
                                    "and updates the system hosts file",
                        epilog="Make sure you're familiar with the naming standards, "
                               "e.g. RFC 2606, RFC 6761, RFC 6762 incl. Appendix G")
+    p.add_argument("-f", "--flush", help="(Optional) Flush DNS records", action="store_true")
     p.add_argument("-n", "--nic", help="(Optional) Network interface", default="")
     p.add_argument("-s", "--suffix", help="(Optional) Default suffix", default="")
     ns = p.parse_args()
     return (
+        ns.flush,
         ns.nic,
-        ns.suffix
+        ns.suffix,
     )
 
 
 if __name__ == '__main__':
     (
+        input_is_flush,
         input_nic,
-        input_suffix
+        input_suffix,
     ) = parse_args()
 
     logging.basicConfig(
         format=u"%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s",
         level=get_logging_level()
     )
+
+    if input_is_flush:
+        flush_dns()
 
     if is_nic_valid(input_nic):
         main_nic = input_nic
@@ -308,7 +318,6 @@ if __name__ == '__main__':
     parsed_ip_addresses = arp_scan(main_nic)
 
     raw_hostname_dicts = mp_queue(pick_hostname, parsed_ip_addresses)
-
 
     hostname_dicts = raw_hostname_dicts + [get_self_hostname(main_nic)]
     hostname_dicts = validate_new_hostnames(hostname_dicts)
