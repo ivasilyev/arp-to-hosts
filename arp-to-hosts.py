@@ -139,6 +139,7 @@ def nmblookup(ip: str):
             len(name) > 0
             and name not in ("MAC", "__MSBROWSE__")
             and len(re.findall("<(.+)>", name)) == 0
+            and os.getenv("HOST_SCAN_WORKGROUP", "WORKGROUP") not in name
         ):
             logging.debug(f"'nmblookup' returned '{name}'")
             return name
