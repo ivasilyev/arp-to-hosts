@@ -199,7 +199,7 @@ def mp_queue(func, queue: list):
 
 def get_self_hostname(dev: str):
     o = go(f"hostname --short")
-    _hostname = o.split(" ")[0].strip()
+    _hostname = validate_hostname(o.split(" ")[0].strip())
     _ip = go(f"ip addr show dev {dev} | grep -oP '(?<=inet )[0-9.]+(?=/)'")
     return dict(hostname=_hostname, ip=_ip)
 
