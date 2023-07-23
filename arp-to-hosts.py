@@ -199,7 +199,7 @@ def mp_queue(func, queue: list):
 
 def get_self_hostname(dev: str):
     o = go(f"hostname --short")
-    _hostname = validate_hostname(o.split(" ")[0].strip())
+    _hostname = o.split(" ")[0].strip()
     _ip = go(f"ip addr show dev {dev} | grep -oP '(?<=inet )[0-9.]+(?=/)'")
     return dict(hostname=_hostname, ip=_ip)
 
@@ -260,9 +260,10 @@ def validate_new_hostnames(dicts: list):
         if (
             "hostname" in d.keys()
             and is_ip_valid(d.get("ip"))
-            and is_hostname_valid(d.get("hostname"))
         ):
-            out.append(d)
+            hostname = validate_hostname(d.get("hostname"))
+            if is_hostname_valid(hostname):
+                out.append(dict(ip=d.get("ip"), hostname=hostname))
     return sorted(out, key=lambda x: x.get("ip"))
 
 
