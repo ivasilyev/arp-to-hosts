@@ -89,10 +89,9 @@ def is_hostname_valid(s: str):
     return (
         s is not None
         and len(s) > 0
-        and len(re.findall("[^A-Za-z0-9\.\-_]+", s)) == 0
         # .local conflicts with Multicast DNS
         and not s.endswith(".local")
-        and s not in ("*", "?", "_gateway")
+        and all(i not in s for i in ["*", "?", "_gateway"])
     )
 
 
@@ -359,3 +358,6 @@ if __name__ == '__main__':
     new_hosts_content = join_table(new_hosts_lines)
     dump_string(new_hosts_content, HOSTS_FILE)
     logging.info("Hosts update completed")
+
+    if input_is_flush:
+        flush_dns()
