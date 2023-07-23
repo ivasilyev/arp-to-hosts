@@ -92,14 +92,14 @@ def is_hostname_valid(s: str):
         and len(re.findall("[^A-Za-z0-9\.\-_]+", s)) == 0
         # .local conflicts with Multicast DNS
         and not s.endswith(".local")
-        and s not in ("?", "_gateway")
+        and s not in ("*", "?", "_gateway")
     )
 
 
 def validate_hostname(s: str):
-    s = s.lower().strip()
-    if is_hostname_valid:
-        return re.sub("[_-]+", "-", s)
+    if is_hostname_valid(s):
+        s = s.lower().strip()
+        return re.sub("[ _-]+", "-", s)
     return ""
 
 
@@ -219,10 +219,11 @@ def dump_string(s: str, file: str):
         f.close()
 
 
-def load_hosts(*args, **kwargs):
-    o = split_table(load_string(*args, **kwargs), is_space_delimiter=True)
-    logging.debug(f"Read {len(o)} lines")
-    return o
+def load_hosts(file: str):
+    o = split_lines(load_string(file))
+    out = [i for i in o if is_hosts_line_valid(i)]
+    logging.debug(f"Read {len(out)} lines")
+    return out
 
 
 def join_table(list_of_lists: list):
@@ -343,9 +344,8 @@ if __name__ == '__main__':
     hostname_dict = {i["ip"]: i["hostname"] for i in hostname_dicts}
     logging.debug(f"Parsed hostnames are '{hostname_dict}'")
 
-    old_hosts_lines = [i for i in split_lines(load_string(HOSTS_FILE)) if is_hosts_line_valid(i)]
     new_hosts_lines = process_hosts_table(
-        table=old_hosts_lines,
+        table=load_hosts(HOSTS_FILE),
         suffix=main_suffix,
         hostnames=hostname_dict,
     )
