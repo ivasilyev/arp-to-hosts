@@ -135,7 +135,11 @@ def nmblookup(ip: str):
     active_name_strings = [i for i in split_lines(o) if "<ACTIVE>" in i and "<GROUP>" not in i]
     for active_name_string in active_name_strings:
         name = re.findall("^([^ ]+)", active_name_string)[0]
-        if len(name) > 0 and name not in ("MAC", "__MSBROWSE__"):
+        if (
+            len(name) > 0
+            and name not in ("MAC", "__MSBROWSE__")
+            and len(re.findall("<(.+)>", name)) == 0
+        ):
             logging.debug(f"'nmblookup' returned '{name}'")
             return name
     return ""
