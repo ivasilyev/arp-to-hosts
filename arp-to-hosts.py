@@ -10,7 +10,7 @@ from subprocess import getoutput
 from argparse import ArgumentParser
 
 
-HOSTS_FILE = "/etc/hosts"
+DEFAULT_HOSTS_FILE = "/etc/hosts"
 DEFAULT_SUFFIX = "lan"
 
 
@@ -287,11 +287,17 @@ def parse_args():
     p.add_argument("-f", "--flush", help="(Optional) Flush DNS records", action="store_true")
     p.add_argument("-n", "--nic", help="(Optional) Network interface", default="")
     p.add_argument("-s", "--suffix", help="(Optional) Default suffix", default=DEFAULT_SUFFIX)
+    p.add_argument(
+        "-t", "--hosts",
+        help=f"(Optional) Hosts file, default: '{DEFAULT_HOSTS_FILE}'",
+        default=DEFAULT_HOSTS_FILE
+    )
     ns = p.parse_args()
     return (
         ns.flush,
         ns.nic,
         ns.suffix,
+        ns.hosts,
     )
 
 
@@ -300,6 +306,7 @@ if __name__ == '__main__':
         input_is_flush,
         input_nic,
         input_suffix,
+        input_hosts_file,
     ) = parse_args()
 
     logger = logging.getLogger()
@@ -330,7 +337,7 @@ if __name__ == '__main__':
     new_hostname_dict = {i["ip"]: i["hostname"] for i in hostname_dicts}
     logger.debug(f"Parsed hostnames are '{new_hostname_dict}'")
 
-    hosts_file_lines = split_table(load_string(HOSTS_FILE), True)
+    hosts_file_lines = split_table(load_string(input_hosts_file), True)
     for hosts_file_line_idx in range(len(hosts_file_lines)):
         hosts_file_line = hosts_file_lines[hosts_file_line_idx]
         # Update the host entries first
@@ -349,13 +356,14 @@ if __name__ == '__main__':
         logging.debug(f"Append the new host entry: '{host_ip} {new_host_entry}'")
         hosts_file_lines.append([host_ip] + get_updating_hostname_entry(new_host_entry, main_suffix))
 
-    backup_file = f"{HOSTS_FILE}.bak"
+    os.makedirs(os.path.dirname(input_hosts_file), exist_ok=True)
+    backup_file = f"{input_hosts_file}.bak"
     if not os.path.exists(backup_file):
-        copy2(HOSTS_FILE, backup_file)
+        copy2(input_hosts_file, backup_file)
         logger.info(f"Created backup: '{backup_file}'")
 
     new_hosts_content = join_table(hosts_file_lines)
-    dump_string(new_hosts_content, HOSTS_FILE)
+    dump_string(new_hosts_content, input_hosts_file)
     logger.info("Hosts update completed")
 
     if input_is_flush:
