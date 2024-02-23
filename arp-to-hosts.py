@@ -256,7 +256,7 @@ def get_logger_level():
         val = getattr(logger, var)
         if isinstance(val, int) and val in [i * 10 for i in range(0, 6)]:
             return val
-    return logger.ERROR
+    return logging.ERROR
 
 
 def validate_new_hostnames(dicts: list):
@@ -277,6 +277,28 @@ def get_updating_hostname_entry(s: str, suffix: str) -> list:
     if not s.endswith(suffix):
         o.append(f"{s}{suffix}")
     return o
+
+
+def process_hosts_table(old_hosts: list, new_hosts: dict, suffix: str) -> list:
+    hosts = list(old_hosts)
+    new_hosts = dict(new_hosts)
+    for hosts_file_line_idx in range(len(hosts)):
+        hosts_file_line = hosts[hosts_file_line_idx]
+        # Update the host entries first
+        if len(hosts_file_line) > 1:
+            host_ip = hosts_file_line[0]
+            new_host_entry = new_hosts.get(host_ip)
+            if new_host_entry is not None:
+                logging.debug(f"Update the existing host entry: '{host_ip} {new_host_entry}'")
+                hosts[hosts_file_line_idx] = [host_ip] + get_updating_hostname_entry(
+                    new_host_entry, suffix
+                )
+                _ = new_hosts.pop(host_ip)
+    # Append if new entries are present
+    for host_ip, new_host_entry in new_hosts.items():
+        logging.debug(f"Append the new host entry: '{host_ip} {new_host_entry}'")
+        hosts.append([host_ip] + get_updating_hostname_entry(new_host_entry, suffix))
+    return hosts
 
 
 def parse_args():
@@ -338,23 +360,7 @@ if __name__ == '__main__':
     logger.debug(f"Parsed hostnames are '{new_hostname_dict}'")
 
     hosts_file_lines = split_table(load_string(input_hosts_file), True)
-    for hosts_file_line_idx in range(len(hosts_file_lines)):
-        hosts_file_line = hosts_file_lines[hosts_file_line_idx]
-        # Update the host entries first
-        if len(hosts_file_line) > 1:
-            host_ip = hosts_file_line[0]
-            new_host_entry = new_hostname_dict.get(host_ip)
-            if new_host_entry is not None:
-                logging.debug(f"Update the existing host entry: '{host_ip} {new_host_entry}'")
-                hosts_file_lines[hosts_file_line_idx] = [host_ip] + get_updating_hostname_entry(
-                    new_host_entry, main_suffix
-                )
-                _ = new_hostname_dict.pop(host_ip)
-
-    # Append if new entries are present
-    for host_ip, new_host_entry in new_hostname_dict.items():
-        logging.debug(f"Append the new host entry: '{host_ip} {new_host_entry}'")
-        hosts_file_lines.append([host_ip] + get_updating_hostname_entry(new_host_entry, main_suffix))
+    updated_hosts_lines = process_hosts_table(hosts_file_lines, new_hostname_dict, main_suffix)
 
     os.makedirs(os.path.dirname(input_hosts_file), exist_ok=True)
     backup_file = f"{input_hosts_file}.bak"
