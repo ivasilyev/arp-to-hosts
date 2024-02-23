@@ -320,7 +320,7 @@ def parse_args():
         help="(Optional) Logging level",
         type=int,
         choices=range(0, 6),
-        default=logging.ERROR
+        default=5
     )
     p.add_argument(
         "-i",
@@ -343,7 +343,7 @@ def parse_args():
     ns = p.parse_args()
     return (
         ns.flush,
-        ns.logging,
+        ns.logging * 10,
         ns.nic,
         ns.suffix,
         ns.hosts,
