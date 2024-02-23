@@ -251,9 +251,9 @@ def get_logging_level():
     if (
         var is not None
         and len(var) > 0
-        and hasattr(logger, var)
+        and hasattr(logging, var)
     ):
-        val = getattr(logger, var)
+        val = getattr(logging, var)
         if isinstance(val, int) and val in [i * 10 for i in range(0, 6)]:
             return val
     return logging.ERROR
@@ -324,7 +324,7 @@ def parse_args():
     p.add_argument("-n", "--nic", help="(Optional) Network interface", default="")
     p.add_argument("-s", "--suffix", help="(Optional) Default suffix", default=DEFAULT_SUFFIX)
     p.add_argument(
-        "-t", "--hosts",
+        "-o", "--hosts",
         help=f"(Optional) Hosts file, default: '{DEFAULT_HOSTS_FILE}'",
         default=DEFAULT_HOSTS_FILE
     )
@@ -375,7 +375,7 @@ if __name__ == '__main__':
     new_hostname_dict = {i["ip"]: i["hostname"] for i in hostname_dicts}
     logger.debug(f"Parsed hostnames are '{new_hostname_dict}'")
 
-    if not os.path.exists(input_hosts_file):
+    if not os.path.exists(input_hosts_file) or os.stat(input_hosts_file).st_size:
         os.makedirs(os.path.dirname(input_hosts_file))
         dump_string(get_hosts_file_stub(), input_hosts_file)
 
