@@ -20,7 +20,7 @@ def join_lines(s: str):
 
 def go(cmd: str):
     o = getoutput(cmd)
-    logging.debug(f"Ran command: '{join_lines(cmd)}' with the output: '{o}'")
+    logger.debug(f"Ran command: '{join_lines(cmd)}' with the output: '{o}'")
     return o
 
 
@@ -29,6 +29,7 @@ def split_lines(s: str):
 
 
 def split_columns(s: str, is_space_delimiter: bool = False):
+    s = s.strip()
     r = "[\t]+"
     if is_space_delimiter:
         r = "[\t ]+"
@@ -54,9 +55,9 @@ def flatten_2d_list(x: list):
 def check_suffix(s: str):
     s = s.strip(" ,.")
     if len(s) == 0 or s in ("local",):
-        logging.info(f"Invalid suffix: '{s}', use default instead: '{DEFAULT_SUFFIX}'")
-        return DEFAULT_SUFFIX
-    return s
+        logger.info(f"Invalid suffix: '{s}', use default instead: '{DEFAULT_SUFFIX}'")
+        s = DEFAULT_SUFFIX
+    return f".{s}"
 
 
 def remove_empty_values(x: list):
@@ -108,7 +109,7 @@ def is_nic_valid(s: str):
     if len(s) > 0:
         if s in nics:
             return True
-        logging.warning(f"Invalid NIC: '{s}', reset to default")
+        logger.warning(f"Invalid NIC: '{s}', reset to default")
     return False
 
 
@@ -119,14 +120,14 @@ def get_default_nic():
         if i.startswith("default")
     ][0]
     out = re.findall("dev ([^ ]+)", default_line)[0]
-    logging.info(f"Got the default interface: '{out}'")
+    logger.info(f"Got the default interface: '{out}'")
     return out
 
 
 def arp_scan(nic: str):
     o = go(f"/usr/sbin/arp-scan --interface={nic} --localnet --plain --quiet")
     addresses = sorted_set([j for j in [i[0] for i in split_table(o)] if is_ip_valid(j)])
-    logging.debug(f"'arp-scan' returned {len(addresses)} adresses")
+    logger.debug(f"'arp-scan' returned {len(addresses)} adresses")
     return addresses
 
 
@@ -141,7 +142,7 @@ def nmblookup(ip: str):
             and len(re.findall("<(.+)>", name)) == 0
             and os.getenv("HOST_SCAN_WORKGROUP", "WORKGROUP") not in name
         ):
-            logging.debug(f"'nmblookup' returned '{name}'")
+            logger.debug(f"'nmblookup' returned '{name}'")
             return name
     return ""
 
@@ -152,7 +153,7 @@ def nslookup(ip: str):
         name = re.findall("name = ([^ ]+)", name_string)
         if len(name) > 0:
             out = name[0].strip(" .")
-            logging.debug(f"'nslookup' returned '{out}'")
+            logger.debug(f"'nslookup' returned '{out}'")
             return out
     return ""
 
@@ -163,7 +164,7 @@ def arp_a(ip: str):
         name = re.findall("(^[^ ]+)", name_string)
         if len(name) > 0:
             out = name[0].strip(" .")
-            logging.debug(f"'arp -a' returned '{out}'")
+            logger.debug(f"'arp -a' returned '{out}'")
             return out
     return ""
 
@@ -175,7 +176,7 @@ def dig_x(ip: str):
             continue
         if row_list[1] == "IN" and row_list[2] == "PTR":
             out = row_list[3].strip(" .")
-            logging.debug(f"'dig -x' returned '{out}'")
+            logger.debug(f"'dig -x' returned '{out}'")
             return out
     return ""
 
@@ -185,10 +186,10 @@ def pick_hostname(ip: str):
         return dict()
     for func in (nmblookup, nslookup, arp_a, dig_x):
         name = func.__name__
-        logging.info(f"Trying '{name}'")
+        logger.info(f"Trying '{name}'")
         hostname = validate_hostname(func(ip))
         if len(hostname) > 0:
-            logging.debug(f"Got hostname for IP address '{ip}' via '{name}': '{hostname}'")
+            logger.debug(f"Got hostname for IP address '{ip}' via '{name}': '{hostname}'")
             return dict(ip=ip, hostname=hostname)
     return dict()
 
@@ -209,7 +210,7 @@ def get_self_hostname(dev: str):
 
 
 def load_string(file: str):
-    logging.debug(f"Read file: '{file}'")
+    logger.debug(f"Read file: '{file}'")
     with open(file, mode="r", encoding="utf-8") as f:
         o = f.read()
         f.close()
@@ -217,7 +218,7 @@ def load_string(file: str):
 
 
 def dump_string(s: str, file: str):
-    logging.debug(f"Write file: '{file}'")
+    logger.debug(f"Write file: '{file}'")
     with open(file, mode="w", encoding="utf-8") as f:
         f.write(s)
         f.close()
@@ -226,7 +227,7 @@ def dump_string(s: str, file: str):
 def load_hosts(file: str):
     o = split_lines(load_string(file))
     out = [i for i in o if is_hosts_line_valid(i)]
-    logging.debug(f"Read {len(out)} lines")
+    logger.debug(f"Read {len(out)} lines")
     return out
 
 
@@ -235,27 +236,27 @@ def join_table(list_of_lists: list):
 
 
 def flush_dns():
-    logging.info("Flush DNS caches")
+    logger.info("Flush DNS caches")
     o = go("resolvectl flush-caches").strip()
     if len(o) > 0:
-        logging.warning(f"DNS cache flush attempt finished unexpectedly: '{o}'")
-    logging.info("Restart DNS")
+        logger.warning(f"DNS cache flush attempt finished unexpectedly: '{o}'")
+    logger.info("Restart DNS")
     o = go("systemctl restart systemd-hostnamed").strip()
     if len(o) > 0:
-        logging.warning(f"DNS restart attempt finished unexpectedly: '{o}'")
+        logger.warning(f"DNS restart attempt finished unexpectedly: '{o}'")
 
 
-def get_logging_level():
-    var = os.getenv("LOGGING_LEVEL", None)
+def get_logger_level():
+    var = os.getenv("logger_LEVEL", None)
     if (
         var is not None
         and len(var) > 0
-        and hasattr(logging, var)
+        and hasattr(logger, var)
     ):
-        val = getattr(logging, var)
+        val = getattr(logger, var)
         if isinstance(val, int) and val in [i * 10 for i in range(0, 6)]:
             return val
-    return logging.ERROR
+    return logger.ERROR
 
 
 def validate_new_hostnames(dicts: list):
@@ -271,32 +272,11 @@ def validate_new_hostnames(dicts: list):
     return sorted(out, key=lambda x: x.get("ip"))
 
 
-def process_hosts_table(table: list, hostnames: dict, suffix: str):
-    suffix = f".{suffix}"
-    hostnames_with_suffixes = dict()
-    for ip, hostname in hostnames.items():
-        if not hostname.endswith(suffix):
-            hostname = f"{hostname}{suffix}"
-        hostnames_with_suffixes[ip] = hostname
-    new_hostnames = list(hostnames.values()) + list(hostnames_with_suffixes.values())
-    out_lines = list()
-    for line in table:
-        columns = remove_empty_values(split_columns(line, is_space_delimiter=True))
-        if len(columns) == 0:
-            out_lines.append([line])
-            continue
-        ip = columns[0]
-        if not is_ip_valid(ip):
-            out_lines.append([line])
-            continue
-        hostnames = [i for i in columns[1:] if i not in new_hostnames]
-        if ip in hostnames_with_suffixes.keys():
-            hostnames = [hostnames_with_suffixes.pop(ip)]
-        out_lines.append([ip, *hostnames])
-    logging.debug(f"New host names to add: '{hostnames_with_suffixes}'")
-    extend_hostnames = list(hostnames_with_suffixes.items())
-    out_lines.extend(extend_hostnames)
-    return out_lines
+def get_updating_hostname_entry(s: str, suffix: str) -> list:
+    o = [s]
+    if not s.endswith(suffix):
+        o.append(f"{s}{suffix}")
+    return o
 
 
 def parse_args():
@@ -323,7 +303,7 @@ if __name__ == '__main__':
     ) = parse_args()
 
     logger = logging.getLogger()
-    logger.setLevel(get_logging_level())
+    logger.setLevel("DEBUG")
     stream = logging.StreamHandler()
     stream.setFormatter(logging.Formatter(
         u"%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s")
@@ -345,24 +325,38 @@ if __name__ == '__main__':
     raw_hostname_dicts = mp_queue(pick_hostname, parsed_ip_addresses)
 
     hostname_dicts = raw_hostname_dicts + [get_self_hostname(main_nic)]
-    hostname_dicts = validate_new_hostnames(hostname_dicts)
-    hostname_dict = {i["ip"]: i["hostname"] for i in hostname_dicts}
-    logging.debug(f"Parsed hostnames are '{hostname_dict}'")
 
-    new_hosts_lines = process_hosts_table(
-        table=load_hosts(HOSTS_FILE),
-        suffix=main_suffix,
-        hostnames=hostname_dict,
-    )
+    hostname_dicts = validate_new_hostnames(hostname_dicts)
+    new_hostname_dict = {i["ip"]: i["hostname"] for i in hostname_dicts}
+    logger.debug(f"Parsed hostnames are '{new_hostname_dict}'")
+
+    hosts_file_lines = split_table(load_string(HOSTS_FILE), True)
+    for hosts_file_line_idx in range(len(hosts_file_lines)):
+        hosts_file_line = hosts_file_lines[hosts_file_line_idx]
+        # Update the host entries first
+        if len(hosts_file_line) > 1:
+            host_ip = hosts_file_line[0]
+            new_host_entry = new_hostname_dict.get(host_ip)
+            if new_host_entry is not None:
+                logging.debug(f"Update the existing host entry: '{host_ip} {new_host_entry}'")
+                hosts_file_lines[hosts_file_line_idx] = [host_ip] + get_updating_hostname_entry(
+                    new_host_entry, main_suffix
+                )
+                _ = new_hostname_dict.pop(host_ip)
+
+    # Append if new entries are present
+    for host_ip, new_host_entry in new_hostname_dict.items():
+        logging.debug(f"Append the new host entry: '{host_ip} {new_host_entry}'")
+        hosts_file_lines.append([host_ip] + get_updating_hostname_entry(new_host_entry, main_suffix))
 
     backup_file = f"{HOSTS_FILE}.bak"
     if not os.path.exists(backup_file):
         copy2(HOSTS_FILE, backup_file)
-        logging.info(f"Created backup: '{backup_file}'")
+        logger.info(f"Created backup: '{backup_file}'")
 
-    new_hosts_content = join_table(new_hosts_lines)
+    new_hosts_content = join_table(hosts_file_lines)
     dump_string(new_hosts_content, HOSTS_FILE)
-    logging.info("Hosts update completed")
+    logger.info("Hosts update completed")
 
     if input_is_flush:
         flush_dns()
