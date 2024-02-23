@@ -246,19 +246,6 @@ def flush_dns():
         logger.warning(f"DNS restart attempt finished unexpectedly: '{o}'")
 
 
-def get_logging_level():
-    var = os.getenv("LOGGING_LEVEL", None)
-    if (
-        var is not None
-        and len(var) > 0
-        and hasattr(logging, var)
-    ):
-        val = getattr(logging, var)
-        if isinstance(val, int) and val in [i * 10 for i in range(0, 6)]:
-            return val
-    return logging.ERROR
-
-
 def validate_new_hostnames(dicts: list):
     out = list()
     for d in dicts:
@@ -320,17 +307,43 @@ def parse_args():
                                    "and updates the system hosts file",
                        epilog="Make sure you're familiar with the naming standards, "
                               "e.g. RFC 2606, RFC 6761, RFC 6762 incl. Appendix G")
-    p.add_argument("-f", "--flush", help="(Optional) Flush DNS records", action="store_true")
-    p.add_argument("-n", "--nic", help="(Optional) Network interface", default="")
-    p.add_argument("-s", "--suffix", help="(Optional) Default suffix", default=DEFAULT_SUFFIX)
     p.add_argument(
-        "-o", "--hosts",
+        "-f",
+        "--flush",
+        help="(Optional) Flush DNS records",
+        type=bool,
+        action="store_true"
+    )
+    p.add_argument(
+        "-l",
+        "--logging",
+        help="(Optional) Logging level",
+        type=int,
+        choices=range(0, 6),
+        default=logging.ERROR
+    )
+    p.add_argument(
+        "-i",
+        "--nic",
+        help="(Optional) Network interface",
+        default=""
+    )
+    p.add_argument(
+        "-s",
+        "--suffix",
+        help="(Optional) Default suffix",
+        default=DEFAULT_SUFFIX
+    )
+    p.add_argument(
+        "-o",
+        "--hosts",
         help=f"(Optional) Hosts file, default: '{DEFAULT_HOSTS_FILE}'",
         default=DEFAULT_HOSTS_FILE
     )
     ns = p.parse_args()
     return (
         ns.flush,
+        ns.logging,
         ns.nic,
         ns.suffix,
         ns.hosts,
@@ -340,13 +353,14 @@ def parse_args():
 if __name__ == '__main__':
     (
         input_is_flush,
+        input_logging_level,
         input_nic,
         input_suffix,
         input_hosts_file,
     ) = parse_args()
 
     logger = logging.getLogger()
-    logger.setLevel(get_logging_level())
+    logger.setLevel(input_logging_level)
     stream = logging.StreamHandler()
     stream.setFormatter(logging.Formatter(
         u"%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s")
@@ -387,7 +401,7 @@ if __name__ == '__main__':
         copy2(input_hosts_file, backup_file)
         logger.info(f"Created backup: '{backup_file}'")
 
-    new_hosts_content = join_table(hosts_file_lines)
+    new_hosts_content = join_table(updated_hosts_lines)
     dump_string(new_hosts_content, input_hosts_file)
     logger.info("Hosts update completed")
 
