@@ -246,8 +246,8 @@ def flush_dns():
         logger.warning(f"DNS restart attempt finished unexpectedly: '{o}'")
 
 
-def get_logger_level():
-    var = os.getenv("logger_LEVEL", None)
+def get_logging_level():
+    var = os.getenv("LOGGING_LEVEL", None)
     if (
         var is not None
         and len(var) > 0
@@ -346,7 +346,7 @@ if __name__ == '__main__':
     ) = parse_args()
 
     logger = logging.getLogger()
-    logger.setLevel(get_logger_level())
+    logger.setLevel(get_logging_level())
     stream = logging.StreamHandler()
     stream.setFormatter(logging.Formatter(
         u"%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s")
