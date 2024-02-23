@@ -346,7 +346,7 @@ if __name__ == '__main__':
     ) = parse_args()
 
     logger = logging.getLogger()
-    logger.setLevel("DEBUG")
+    logger.setLevel(get_logger_level())
     stream = logging.StreamHandler()
     stream.setFormatter(logging.Formatter(
         u"%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s")
@@ -364,6 +364,8 @@ if __name__ == '__main__':
     main_suffix = check_suffix(input_suffix)
 
     parsed_ip_addresses = arp_scan(main_nic)
+    if len(parsed_ip_addresses) == 0:
+        raise ValueError("No reachable IP addresses discovered")
 
     raw_hostname_dicts = mp_queue(pick_hostname, parsed_ip_addresses)
 
