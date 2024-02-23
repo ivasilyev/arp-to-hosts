@@ -301,6 +301,20 @@ def process_hosts_table(old_hosts: list, new_hosts: dict, suffix: str) -> list:
     return hosts
 
 
+def get_hosts_file_stub():
+    return """127.0.0.1 localhost
+127.0.1.1 {}
+
+# The following lines are desirable for IPv6 capable hosts
+::1     ip6-localhost ip6-loopback
+fe00::0 ip6-localnet
+ff00::0 ip6-mcastprefix
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+
+""".format(go("hostname"))
+
+
 def parse_args():
     p = ArgumentParser(description="This tool scans the network for the hosts telling their hostnames "
                                    "and updates the system hosts file",
@@ -358,6 +372,10 @@ if __name__ == '__main__':
     hostname_dicts = validate_new_hostnames(hostname_dicts)
     new_hostname_dict = {i["ip"]: i["hostname"] for i in hostname_dicts}
     logger.debug(f"Parsed hostnames are '{new_hostname_dict}'")
+
+    if not os.path.exists(input_hosts_file):
+        os.makedirs(os.path.dirname(input_hosts_file))
+        dump_string(get_hosts_file_stub(), input_hosts_file)
 
     hosts_file_lines = split_table(load_string(input_hosts_file), True)
     updated_hosts_lines = process_hosts_table(hosts_file_lines, new_hostname_dict, main_suffix)
