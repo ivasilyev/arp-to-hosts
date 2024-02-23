@@ -311,7 +311,6 @@ def parse_args():
         "-f",
         "--flush",
         help="(Optional) Flush DNS records",
-        type=bool,
         action="store_true"
     )
     p.add_argument(
