@@ -388,11 +388,14 @@ if __name__ == '__main__':
     new_hostname_dict = {i["ip"]: i["hostname"] for i in hostname_dicts}
     logger.debug(f"Parsed hostnames are '{new_hostname_dict}'")
 
-    if not os.path.exists(input_hosts_file) or os.stat(input_hosts_file).st_size:
-        os.makedirs(os.path.dirname(input_hosts_file), exist_ok=True)
+    if not os.path.exists(input_hosts_file):
+        os.makedirs(os.path.dirname(os.path.dirname(input_hosts_file)), exist_ok=True)
         dump_string(get_hosts_file_stub(), input_hosts_file)
 
     hosts_file_lines = split_table(load_string(input_hosts_file), True)
+
+    if len([i for i in hosts_file_lines if len(i) > 0 and i[0] == "127.0.0.1"]) == 0:
+        hosts_file_lines = split_table(get_hosts_file_stub()) + hosts_file_lines
     updated_hosts_lines = process_hosts_table(hosts_file_lines, new_hostname_dict, main_suffix)
 
     backup_file = f"{input_hosts_file}.bak"
