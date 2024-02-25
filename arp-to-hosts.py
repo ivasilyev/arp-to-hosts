@@ -389,7 +389,7 @@ if __name__ == '__main__':
     logger.debug(f"Parsed hostnames are '{new_hostname_dict}'")
 
     if not os.path.exists(input_hosts_file):
-        os.makedirs(os.path.dirname(os.path.dirname(input_hosts_file)), exist_ok=True)
+        os.makedirs(os.path.dirname(input_hosts_file), exist_ok=True)
         dump_string(get_hosts_file_stub(), input_hosts_file)
 
     hosts_file_lines = split_table(load_string(input_hosts_file), True)
