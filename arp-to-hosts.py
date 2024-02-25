@@ -231,8 +231,8 @@ def load_hosts(file: str):
     return out
 
 
-def join_table(list_of_lists: list):
-    return "\n".join(["\t".join([str(column) for column in row]) for row in list_of_lists]) + "\n"
+def join_table(list_of_lists: list, delimiter: str = "\t"):
+    return "\n".join([delimiter.join([str(column) for column in row]) for row in list_of_lists]) + "\n"
 
 
 def flush_dns():
@@ -400,7 +400,7 @@ if __name__ == '__main__':
         copy2(input_hosts_file, backup_file)
         logger.info(f"Created backup: '{backup_file}'")
 
-    new_hosts_content = join_table(updated_hosts_lines)
+    new_hosts_content = join_table(updated_hosts_lines, " ")
     dump_string(new_hosts_content, input_hosts_file)
     logger.info("Hosts update completed")
 
