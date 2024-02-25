@@ -107,6 +107,8 @@ while true
         --nic "ens33" \
         --suffix "home"
 
+    # Dirty fix for a pretty hostname
+    # sed -i -r "s/^([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}) ugly-hostname/\1 pretty-hostname ugly-hostname/g" "${TOOL_OUT_FILE}"
     sleep 1h
 
     done
