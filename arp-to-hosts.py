@@ -25,7 +25,7 @@ def go(cmd: str):
 
 
 def split_lines(s: str):
-    return [i.strip() for i in re.split("[\r\n]", s)]
+    return [i.strip() for i in re.split("[\r\n]+", s)]
 
 
 def split_columns(s: str, is_space_delimiter: bool = False):
