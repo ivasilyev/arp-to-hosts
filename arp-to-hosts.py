@@ -25,7 +25,7 @@ def go(cmd: str):
 
 
 def split_lines(s: str):
-    return [i.strip() for i in re.split("[\r\n]+", s)]
+    return [i.strip() for i in re.split("[\r\n]", s)]
 
 
 def split_columns(s: str, is_space_delimiter: bool = False):
@@ -115,8 +115,9 @@ def is_nic_valid(s: str):
 
 def get_default_nic():
     o = go("ip route show default 0.0.0.0/0")
+    lines = remove_empty_values(split_lines(o))
     default_line = [
-        i for i in split_lines(o)
+        i for i in lines
         if i.startswith("default")
     ][0]
     out = re.findall("dev ([^ ]+)", default_line)[0]
@@ -133,7 +134,8 @@ def arp_scan(nic: str):
 
 def nmblookup(ip: str):
     o = go(f"nmblookup -A {ip}")
-    active_name_strings = [i for i in split_lines(o) if "<ACTIVE>" in i and "<GROUP>" not in i]
+    lines = remove_empty_values(split_lines(o))
+    active_name_strings = [i for i in lines if "<ACTIVE>" in i and "<GROUP>" not in i]
     for active_name_string in active_name_strings:
         name = re.findall("^([^ ]+)", active_name_string)[0]
         if (
@@ -160,7 +162,8 @@ def nslookup(ip: str):
 
 def arp_a(ip: str):
     o = go(f"/usr/sbin/arp -a \"{ip}\"")
-    for name_string in split_lines(o):
+    lines = remove_empty_values(split_lines(o))
+    for name_string in lines:
         name = re.findall("(^[^ ]+)", name_string)
         if len(name) > 0:
             out = name[0].strip(" .")
