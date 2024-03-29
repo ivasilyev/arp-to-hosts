@@ -284,7 +284,8 @@ def process_hosts_table(old_hosts: list, new_hosts: dict, suffix: str) -> list:
     # Append if new entries are present
     for host_ip, new_host_entry in new_hosts.items():
         logging.debug(f"Append the new host entry: '{host_ip} {new_host_entry}'")
-        hosts.append([host_ip] + get_updating_hostname_entry(new_host_entry, suffix))
+        new_host_columns = [host_ip] + list(set(get_updating_hostname_entry(new_host_entry, suffix)))
+        hosts.append(new_host_columns)
     return hosts
 
 
